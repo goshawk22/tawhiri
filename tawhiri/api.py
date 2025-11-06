@@ -30,7 +30,6 @@ from tawhiri.dataset import Dataset as WindDataset
 from tawhiri.warnings import WarningCounts
 from tawhiri.csvformatter import format_csv, fix_data_longitudes
 from tawhiri.kmlformatter import format_kml
-from ruaumoko import Dataset as ElevationDataset
 
 app = Flask(__name__)
 
@@ -43,13 +42,6 @@ STANDARD_FORMAT = "json"
 
 
 # Util functions ##############################################################
-def ruaumoko_ds():
-    if not hasattr("ruaumoko_ds", "once"):
-        ds_loc = app.config.get('ELEVATION_DATASET', ElevationDataset.default_location)
-        ruaumoko_ds.once = ElevationDataset(ds_loc)
-
-    return ruaumoko_ds.once
-
 def _rfc3339_to_timestamp(dt):
     """
     Convert from a RFC3339 timestamp to a UNIX timestamp.
@@ -142,16 +134,9 @@ def parse_request(data):
     req['format'] = \
         _extract_parameter(data, "format", str, STANDARD_FORMAT)
 
-    # If no launch altitude provided, use Ruaumoko to look it up
+    # If no launch altitude provided, default to 0m
     if req['launch_altitude'] is None:
-        try:
-            req['launch_altitude'] = ruaumoko_ds().get(req['launch_latitude'],
-                                                       req['launch_longitude'])
-        except Exception:
-            # Cannot query Ruaumoko - just set launch altitude to 0.
-            req['launch_altitude'] = 0.0
-            # raise InternalException("Internal exception experienced whilst " +
-            #                         "looking up 'launch_altitude'.")
+        req['launch_altitude'] = 0.0
 
     # Prediction profile
     req['profile'] = _extract_parameter(data, "profile", str,
@@ -168,8 +153,8 @@ def parse_request(data):
         req['descent_rate'] = rate_clip(_extract_parameter(data, "descent_rate", float,
                                                  validator=lambda x: x > 0))
     elif req['profile'] == PROFILE_FLOAT:
-        req['ascent_rate'] = rate_clip(_extract_parameter(data, "ascent_rate", float,
-                                                validator=lambda x: x > 0))
+        req['ascent_rate'] = _extract_parameter(data, "ascent_rate", float,
+                                                validator=lambda x: x >= 0)
         req['float_altitude'] = \
             _extract_parameter(data, "float_altitude", float,
                                validator=lambda x: x > launch_alt)
@@ -187,38 +172,6 @@ def parse_request(data):
                                         LATEST_DATASET_KEYWORD)
 
     return req
-
-
-def parse_request_ruaumoko(data):
-    """
-    Parse the request.
-    """
-    req = {"version": API_VERSION}
-
-    # Generic fields
-    req['latitude'] = \
-        _extract_parameter(data, "latitude", float,
-                           validator=lambda x: -90 <= x <= 90)
-    req['longitude'] = \
-        _extract_parameter(data, "longitude", float,
-                           validator=lambda x: 0 <= x < 360)
-
-    # Response dict
-    resp = {
-        "request": req,
-    }
-
-    warningcounts = WarningCounts()
-
-    try:
-        resp['altitude'] = ruaumoko_ds().get(req['latitude'],req['longitude'])
-    except Exception:
-        raise InternalException("Internal exception experienced whilst " +
-                                "querying ruaumoko.")
-    
-    resp["warnings"] = warningcounts.to_dict()
-
-    return resp
 
 def parse_request_datasetcheck(data):
     """
@@ -315,7 +268,6 @@ def run_prediction(req):
                                          req['burst_altitude'],
                                          req['descent_rate'],
                                          tawhiri_ds,
-                                         ruaumoko_ds(),
                                          warningcounts)
     elif req['profile'] == PROFILE_FLOAT:
         stages = models.float_profile(req['ascent_rate'],
@@ -326,7 +278,6 @@ def run_prediction(req):
     elif req['profile'] == PROFILE_REVERSE:
         stages = models.reverse_profile(req['ascent_rate'],
                                       tawhiri_ds,
-                                      ruaumoko_ds(),
                                       warningcounts)
     else:
         raise InternalException("No implementation for known profile.")
@@ -337,7 +288,11 @@ def run_prediction(req):
             # For the reverse prediction we simply set the time-step to be negative!
             result = solver.solve(req['launch_datetime'], req['launch_latitude'],
                                 req['launch_longitude'], req['launch_altitude'],
-                                stages, dt=-60.0)
+                                stages, dt=-20.0)
+        elif req['profile'] == PROFILE_FLOAT and req['ascent_rate'] == 0:
+            result = solver.solve(req['launch_datetime'], req['launch_latitude'],
+                    req['launch_longitude'], req['float_altitude'],
+                    stages)
         else:
             result = solver.solve(req['launch_datetime'], req['launch_latitude'],
                                 req['launch_longitude'], req['launch_altitude'],
@@ -350,8 +305,10 @@ def run_prediction(req):
     # Format trajectory
     if req['profile'] == PROFILE_STANDARD:
         resp['prediction'] = _parse_stages(["ascent", "descent"], result)
-    elif req['profile'] == PROFILE_FLOAT:
+    elif req['profile'] == PROFILE_FLOAT and req['ascent_rate'] > 0:
         resp['prediction'] = _parse_stages(["ascent", "float"], result)
+    elif req['profile'] == PROFILE_FLOAT and req['ascent_rate'] == 0:
+        resp['prediction'] = _parse_stages(["float"], result)
     elif req['profile'] == PROFILE_REVERSE:
         resp['prediction'] = _parse_stages(["ascent", "descent"], result)
         # Extract the last entry as our launch site estimate.
@@ -430,18 +387,6 @@ def main():
     else:
         raise InternalException("Format not supported: " + response["request"]["format"])
 
-
-
-@app.route('/api/ruaumoko/', methods=['GET'])
-def main_ruaumoko():
-    """
-    Ruaumoko endpoint
-    """
-    g.request_start_time = time.time()
-    response = parse_request_ruaumoko(request.args)
-    g.request_complete_time = time.time()
-    response['metadata'] = _format_request_metadata()
-    return jsonify(response)
 
 @app.route('/api/datasetcheck', methods=['GET'])
 def main_datasetcheck():

@@ -21,7 +21,7 @@
 Perform numerical integration of the balloon state.
 """
 
-def solve(t, lat, lng, alt, chain, dt=60.0):
+def solve(t, lat, lng, alt, chain, dt=20.0):
     """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using
        models and termination criteria from `chain`, an iterable of (model,
        terminator) pairs which make up each stage of the flight.
@@ -101,7 +101,7 @@ cdef class Configuration:
 
 def rk4(double t, double lat, double lng, double alt,
         object model, object terminator,
-        double dt=60.0, double termination_tolerance=0.01):
+        double dt=20.0, double termination_tolerance=0.01):
     """
     Use RK4 to integrate from initial conditions `t`, `lat`, `lng` and `alt`,
     using model `f` and termination criterion `terminator`, at timestep `dt`.

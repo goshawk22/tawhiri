@@ -10,7 +10,6 @@ import calendar
 
 from tawhiri import solver, models, kml
 from tawhiri.dataset import Dataset as WindDataset
-from ruaumoko import Dataset as ElevationDataset
 
 lat0 = 52.5563
 lng0 = 360 - 3.1970

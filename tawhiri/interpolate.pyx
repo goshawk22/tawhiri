@@ -79,7 +79,10 @@ def make_interpolator(dataset, WarningCounts warnings):
     if warnings is None:
         raise TypeError("Warnings must not be None")
 
-    data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"f")
+    # Dataset.shape uses 121 for the hour axis (points 0..120 inclusive).
+    # The memory-mapped file therefore contains 121 entries along the
+    # hour axis; use that here so the buffer size matches.
+    data = MagicMemoryView(dataset.array, (121, 47, 3, 721, 1440), b"f")
 
     def f(hour, lat, lng, alt):
         return get_wind(data, warnings, hour, lat, lng, alt)
@@ -143,15 +146,18 @@ cdef long pick(double left, double step, long n, double value,
 cdef long pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
     cdef Lerp1[2] lhour, llat, llng
 
-    # the dimensions of the lat/lon axes are 361 and 720
+    # the dimensions of the lat/lon axes are 721 and 1440
     # (The latitude axis includes its two endpoints; the longitude only
     # includes the lower endpoint)
     # However, the longitude does wrap around, so we tell `pick` that the
     # longitude axis is one larger than it is (so that it can "choose" the
     # 721st point/the 360 degrees point), then wrap it afterwards.
-    pick(0, 3, 65, hour, "hour", lhour)
-    pick(-90, 0.5, 361, lat, "lat", llat)
-    pick(0, 0.5, 720 + 1, lng, "lng", llng)
+    # There are 121 hour points (0..120) in the dataset axes, so pass
+    # the full point count to `pick` (not 120). This keeps indexing and
+    # interpolation consistent with the memory layout.
+    pick(0, 1, 121, hour, "hour", lhour)
+    pick(-90, 0.25, 720 + 1, lat, "lat", llat)
+    pick(0, 0.25, 1440 + 1, lng, "lng", llng)
     if llng[1].index == 720:
         llng[1].index = 0
 

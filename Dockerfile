@@ -3,6 +3,8 @@
 # -------------------
 FROM debian:buster-slim AS build
 
+RUN printf 'deb http://archive.debian.org/debian/ buster main contrib non-free\ndeb http://archive.debian.org/debian/ buster-proposed-updates main contrib non-free\ndeb http://archive.debian.org/debian-security buster/updates main contrib non-free' > /etc/apt/sources.list
+
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
     build-essential \
@@ -28,6 +30,10 @@ RUN cd /root/tawhiri && \
 FROM debian:buster-slim
 
 EXPOSE 8000/tcp
+
+
+RUN printf 'deb http://archive.debian.org/debian/ buster main contrib non-free\ndeb http://archive.debian.org/debian/ buster-proposed-updates main contrib non-free\ndeb http://archive.debian.org/debian-security buster/updates main contrib non-free' > /etc/apt/sources.list
+
 
 RUN apt-get update && \
   apt-get upgrade -y && \

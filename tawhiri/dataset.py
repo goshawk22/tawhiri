@@ -61,7 +61,7 @@ class Dataset(object):
     #: The dimensions of the dataset
     #:
     #: Note ``len(axes[i]) == shape[i]``.
-    shape = (65, 47, 3, 361, 720)
+    shape = (121, 47, 3, 721, 1440)
 
     # TODO: use the other levels too?
     # {10, 80, 100}m heightAboveGround (u, v)
@@ -87,11 +87,11 @@ class Dataset(object):
     #: For example, ``axes.pressure[4]`` is ``900`` - points in
     #: cells ``dataset.array[a][4][b][c][d]`` correspond to data at 900mb.
     axes = _axes_type(
-        range(0, 192 + 3, 3),
+        range(0, 120 + 1, 1),
         sorted(pressures_pgrb2f + pressures_pgrb2bf, reverse=True),
         ["height", "wind_u", "wind_v"],
-        [x/2.0 for x in range(-180, 180 + 1)],
-        [x/2.0 for x in range(0, 720)]
+        [x/4.0 for x in range(-360, 360 + 1)],
+        [x/4.0 for x in range(0, 1440)]
     )
 
     _listdir_type = namedtuple("dataset_in_row",
@@ -108,6 +108,8 @@ class Dataset(object):
     size = element_size
     for _x in shape:
         size *= _x
+    
+    print(size)
     del _x
 
     #: The filename suffix for "grib mirror" files

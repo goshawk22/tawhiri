@@ -54,7 +54,6 @@ setup(
     tests_require=['nose', 'mock', 'Flask-Testing'],
     install_requires=[
         "magicmemoryview",
-        "ruaumoko",
         "Flask",
         "Flask-Script",
         "strict-rfc3339",

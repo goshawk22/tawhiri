@@ -135,11 +135,10 @@ def sea_level_termination(t, lat, lng, alt):
 
 def make_elevation_data_termination(dataset=None):
     """A termination criteria which terminates integration when the
-       altitude goes below ground level, using the elevation data
-       in `dataset` (which should be a ruaumoko.Dataset).
+       altitude goes below ground level (0)
     """
     def tc(t, lat, lng, alt):
-        return (dataset.get(lat, lng) > alt) or (alt <= 0)
+        return (alt <= 0)
     return tc
 
 def make_time_termination(max_time):
@@ -186,7 +185,7 @@ def make_any_terminator(terminators):
 
 
 def standard_profile(ascent_rate, burst_altitude, descent_rate,
-                     wind_dataset, elevation_dataset, warningcounts):
+                     wind_dataset, warningcounts):
     """Make a model chain for the standard high altitude balloon situation of
        ascent at a constant rate followed by burst and subsequent descent
        at terminal velocity under parachute with a predetermined sea level
@@ -204,7 +203,7 @@ def standard_profile(ascent_rate, burst_altitude, descent_rate,
 
     model_down = make_linear_model([make_drag_descent(descent_rate),
                                     make_wind_velocity(wind_dataset, warningcounts)])
-    term_down = make_elevation_data_termination(elevation_dataset)
+    term_down = make_elevation_data_termination()
 
     return ((model_up, term_up), (model_down, term_down))
 
@@ -214,17 +213,22 @@ def float_profile(ascent_rate, float_altitude, stop_time, dataset, warningcounts
        at constant altitude to a float altitude which persists for some
        amount of time before stopping. Descent is in general not modelled.
     """
+    if ascent_rate > 0:
+        model_up = make_linear_model([make_constant_ascent(ascent_rate),
+                                    make_wind_velocity(dataset, warningcounts)])
+        term_up = make_burst_termination(float_altitude)
+        model_float = make_wind_velocity(dataset, warningcounts)
+        term_float = make_time_termination(stop_time)
+        return ((model_up, term_up), (model_float, term_float))
+    else:
+        model_float = make_wind_velocity(dataset, warningcounts)
+        term_float = make_time_termination(stop_time)
 
-    model_up = make_linear_model([make_constant_ascent(ascent_rate),
-                                  make_wind_velocity(dataset, warningcounts)])
-    term_up = make_burst_termination(float_altitude)
-    model_float = make_wind_velocity(dataset, warningcounts)
-    term_float = make_time_termination(stop_time)
-
-    return ((model_up, term_up), (model_float, term_float))
+        return ((model_float, term_float),)
+        
 
 
-def reverse_profile(ascent_rate, wind_dataset, elevation_dataset, warningcounts):
+def reverse_profile(ascent_rate, wind_dataset, warningcounts):
     """Make a model chain used to estimate a balloon's launch site location, based on
        the current position, and a known ascent rate. This model only works for a balloon
        on ascent.
@@ -242,6 +246,6 @@ def reverse_profile(ascent_rate, wind_dataset, elevation_dataset, warningcounts)
 
     model_down = make_linear_model([make_constant_ascent(abs(ascent_rate)),
                                     make_wind_velocity(wind_dataset, warningcounts)])
-    term_down = make_elevation_data_termination(elevation_dataset)
+    term_down = make_elevation_data_termination()
 
     return ((model_up, term_up), (model_down, term_down))

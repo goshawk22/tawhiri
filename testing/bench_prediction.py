@@ -9,7 +9,6 @@ import calendar
 from tawhiri import solver, models
 from tawhiri.dataset import Dataset as WindDataset
 from tawhiri.warnings import WarningCounts
-from ruaumoko import Dataset as ElevationDataset
 
 elevation = ElevationDataset()
 warningcounts = WarningCounts()

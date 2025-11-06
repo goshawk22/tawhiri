@@ -35,8 +35,7 @@ class BasicApiTest(TestCase):
     @patch('tawhiri.models.standard_profile')
     @patch('tawhiri.solver.solve')
     @patch('tawhiri.api.WindDataset')
-    @patch('tawhiri.api.ruaumoko_ds')
-    def test_simple_run(self, ruaumoko_ds_mock, wind_ds_mock, solve_mock, profile_mock):
+    def test_simple_run(self, wind_ds_mock, solve_mock, profile_mock):
         """Make a simple request for a landing prediction."""
 
         # The minimum number of parameters for a prediction is lat, long and
@@ -50,9 +49,6 @@ class BasicApiTest(TestCase):
 
         # We need to mock various tawhiri components:
 
-        # Mock ruaumoko's elevation API to always return 5m.
-        ruaumoko_ds_mock().get = MagicMock(return_value=5)
-
         # Mock latest dataset's strftime
         wind_ds_mock.open_latest().ds_time.strftime = MagicMock(return_value='strftime_mock')
 
@@ -65,11 +61,6 @@ class BasicApiTest(TestCase):
 
         # Make request
         response = self.client.get(API_ROOT + '?' + urlencode(qs))
-
-        # Check that ruaumoko was asked about launch altitude.
-        ruaumoko_ds_mock().get.assert_called_with(
-            qs['launch_latitude'], qs['launch_longitude']
-        )
 
         # Response should always be JSON
         self.assertIsNotNone(response.json)
