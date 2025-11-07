@@ -354,7 +354,7 @@ def _parse_stages(labels, data):
 
 
 # Flask App ###################################################################
-@app.route('/api/v{0}/'.format(API_VERSION), methods=['GET'])
+@app.route('/api/v{0}'.format(API_VERSION), methods=['GET'])
 def main():
     """
     Single API endpoint which accepts GET requests.
