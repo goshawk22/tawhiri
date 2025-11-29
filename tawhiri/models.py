@@ -249,3 +249,17 @@ def reverse_profile(ascent_rate, wind_dataset, warningcounts):
     term_down = make_elevation_data_termination()
 
     return ((model_up, term_up), (model_down, term_down))
+
+def reverse_float_profile(wind_dataset, warningcounts):
+    """Make a model chain used to estimate a balloon's floating trajectory prior to a known
+        location.
+
+       Requires the dataset to use for wind velocities.
+
+       Returns a tuple of (model, terminator) pairs.
+    """
+
+    model_float = make_wind_velocity(wind_dataset, warningcounts)
+    term_float = make_time_termination(0)
+
+    return ((model_float, term_float),)

@@ -38,6 +38,7 @@ LATEST_DATASET_KEYWORD = "latest"
 PROFILE_STANDARD = "standard_profile"
 PROFILE_FLOAT = "float_profile"
 PROFILE_REVERSE = "reverse_profile"
+PROFILE_REVERSE_FLOAT = "reverse_float_profile"
 STANDARD_FORMAT = "json"
 
 
@@ -164,6 +165,10 @@ def parse_request(data):
     elif req['profile'] == PROFILE_REVERSE:
         req['ascent_rate'] = rate_clip(_extract_parameter(data, "ascent_rate", float,
                                                 validator=lambda x: x > 0))
+    elif req['profile'] == PROFILE_REVERSE_FLOAT:
+        req['float_altitude'] = \
+            _extract_parameter(data, "float_altitude", float,
+                               validator=lambda x: x > launch_alt)
     else:
         raise RequestException("Unknown profile '%s'." % req['profile'])
 
@@ -279,6 +284,9 @@ def run_prediction(req):
         stages = models.reverse_profile(req['ascent_rate'],
                                       tawhiri_ds,
                                       warningcounts)
+    elif req['profile'] == PROFILE_REVERSE_FLOAT:
+        stages = models.reverse_float_profile(tawhiri_ds,
+                                      warningcounts)
     else:
         raise InternalException("No implementation for known profile.")
 
@@ -293,6 +301,11 @@ def run_prediction(req):
             result = solver.solve(req['launch_datetime'], req['launch_latitude'],
                     req['launch_longitude'], req['float_altitude'],
                     stages)
+        if req['profile'] == PROFILE_REVERSE_FLOAT:
+            # For the reverse prediction we simply set the time-step to be negative!
+            result = solver.solve(req['launch_datetime'], req['launch_latitude'],
+                                req['launch_longitude'], req['float_altitude'],
+                                stages, dt=-20.0)
         else:
             result = solver.solve(req['launch_datetime'], req['launch_latitude'],
                                 req['launch_longitude'], req['launch_altitude'],
@@ -308,6 +321,8 @@ def run_prediction(req):
     elif req['profile'] == PROFILE_FLOAT and req['ascent_rate'] > 0:
         resp['prediction'] = _parse_stages(["ascent", "float"], result)
     elif req['profile'] == PROFILE_FLOAT and req['ascent_rate'] == 0:
+        resp['prediction'] = _parse_stages(["float"], result)
+    elif req['profile'] == PROFILE_REVERSE_FLOAT:
         resp['prediction'] = _parse_stages(["float"], result)
     elif req['profile'] == PROFILE_REVERSE:
         resp['prediction'] = _parse_stages(["ascent", "descent"], result)

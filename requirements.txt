@@ -2,8 +2,8 @@
 Cython
 
 # gnuicorn tools
-eventlet
-gevent
+eventlet==0.38.2
+gevent==22.10.2
 
 # Documentation
 sphinx
